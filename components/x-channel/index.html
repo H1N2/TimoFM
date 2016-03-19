@@ -154,7 +154,7 @@
                     option.channel_id = 0
                 }
 
-                FM.appSDK.songs(option, function(err, songs) {
+                FM.webSDK.songs(option, function(err, songs) {
                     if(err) console.error(err)
                     FM.playlist.reset(songs)
                     FM.status.channel = self.channel

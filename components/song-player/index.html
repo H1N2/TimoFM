@@ -274,7 +274,7 @@
         neverPlayAgain : function() {
             var self = this
 //            FM.playlist.removeCurrent()
-            FM.appSDK.never_play_again({
+            FM.webSDK.never_play_again({
                 channel_id : FM.status.channel.id,
                 sid : FM.status.song.sid
             },function(err, songs) {
@@ -287,7 +287,7 @@
         star : function() {
             var self = this
             var method = self.song.like ? 'unstar' : 'star'
-            FM.appSDK[method]({
+            FM.webSDK[method]({
                 channel_id : FM.status.channel.id,
                 sid : FM.status.song.sid
             }, function(err, songs) {
@@ -307,7 +307,7 @@
             var name = self.song.title
             if(self.similaring) return
             self.similaring = true
-            FM.appSDK.songs({
+            FM.webSDK.songs({
                 sid : sid,
                 channel_id : cid
             }, function(err, songs) {

@@ -8,11 +8,11 @@
             }
             .form {
                 text-align: center;
-                padding-top: 30vh;
+                padding-top: 10vh;
             }
 
             .user-info {
-                padding-top: 15vh;
+                padding-top: 30vh;
                 text-align: center;
                 font-size: 2.1vw;
             }
@@ -23,6 +23,10 @@
             }
 
             .user-info img {
+                vertical-align: middle;
+            }
+
+            .user-info .avatar {
                 margin-bottom: 5px;
                 border-radius: 24px;
                 width: 48px;
@@ -31,7 +35,7 @@
                 transition : all 0.4s;
             }
 
-            .user-info img:hover {
+            .user-info .avatar:hover {
                 transform: rotate(360deg);
             }
 
@@ -96,18 +100,28 @@
         </style>
         <template if={{userInfo}}>
             <div class="user-info">
-                <img src="{{userInfo.icon}}" />
-                <p><span href="http://douban.fm/" on-click="{{goToLink}}">{{userInfo.user_name}}</span></p>
-                <p><span href="http://douban.fm/mine#!type=played" on-click="{{goToLink}}">累积收听:{{userInfo .played_num}}</span></p>
-                <p><span href="http://douban.fm/mine#!type=liked" on-click="{{goToLink}}">加红心:{{userInfo.liked_num}}</span></p>
-                <p><span href="http://douban.fm/mine#!type=banned" on-click="{{goToLink}}">不再收听:{{userInfo .banned_num}}</span></p>
+                <p><span href="http://douban.fm/" on-click="{{goToLink}}">{{userInfo.name}}</span></p>
+                <p>
+                    <template if={{userInfo.is_pro}}>
+                        <img src="http://img3.douban.com/f/fm/2a515706241f1c45a91812ec581c99b6eef7bb9d/pics/fm/pro/pro_icon.gif" width="29">
+                    </template>
+                </p>
+                <p><span href="http://douban.fm/mine#!type=played" on-click="{{goToLink}}">累积收听:{{userInfo.play_record.played}}</span></p>
+                <p><span href="http://douban.fm/mine#!type=liked" on-click="{{goToLink}}">加红心:{{userInfo.play_record.liked}}</span></p>
+                <p><span href="http://douban.fm/mine#!type=banned" on-click="{{goToLink}}">不再收听:{{userInfo.play_record.banned}}</span></p>
                 <button on-click="{{logout}}">注 销</button>
             </div>
         </template>
-        <template if="{{!userInfo}}">
+        <template if={{!userInfo}}>
             <div class="form">
                 <input type="text" placeholder="邮箱" name="email" value="" on-keydown="{{keydown}}" />
                 <input type="password" placeholder="密码" name="password" value="" on-keydown="{{keydown}}" />
+                <input type="password" placeholder="验证码" name="captcha_solution" value="" on-keydown="{{keydown}}" />
+                <template if={{captcha_id}}>
+                    <br />
+                    <img src="http://douban.fm/misc/captcha?size=m&id={{captcha_id}}" on-click="{{refreshCaptcha}}">
+                    <br />
+                </template>
                 <button type="submit" id="submit" on-click="{{login}}">登  录</button>
                 <div class="errTip">{{err}}</div>
             </div>
@@ -121,49 +135,40 @@
             var cache = FM.cache.get('CACHE:USER')
             if(cache) {
                 self.userInfo = cache
-                self.login()
+                if(self.userInfo && !self.isExpired()) {
+                    setTimeout(self.logout.bind(self), self.timeLeft)
+                }
             }
+            self.refreshCaptcha()
+        },
+
+        refreshCaptcha: function() {
+            var self = this
+            FM.webSDK.captcha_id(null, function(err, id) {
+               if(err) console.error(err)
+               self.captcha_id = id
+            })
         },
 
         login : function() {
             var self = this
-
-            //已经存在登录信息，不登录
-            if(self.userInfo && !self.isExpired()) {
-                FM.appSDK.storage(self.userInfo)
-                //token过期后,自动重新登陆
-                setTimeout(self.login.bind(self), self.timeLeft)
-            } else {
-                var option = self.getValidOptions()
-                if(!option) return
-                self.err = false
-                FM.appSDK.login(option, function(err, result) {
-                    if(err) console.error(err)
-                    if(result.r == 0) {
-                        result.password = option.password
-                        self.userInfo = result
-                        FM.cache.set('CACHE:USER', result)
-                        FM.obs.emit('LOGIN:UPDATE')
-                        self.addUserInfo()
-                        self.err = false
-                    } else {
-                        self.logout()
-                        self.err = result.err
-                    }
-                })
-                return false;
-            }
-        },
-
-        addUserInfo : function() {
-            var self = this
-            FM.appSDK.user_info({}, function(err, body) {
-                if(err) return console.error(err)
-                for(i in body) {
-                    self.userInfo[i] = body[i]
+            var option = self.getValidOptions()
+            if(!option) return
+            self.err = false
+            FM.webSDK.login(option, function(err, result) {
+                if(err) console.error(err)
+                if(result.r == 0) {
+                    result.password = option.password
+                    self.userInfo = result.user_info
+                    FM.cache.set('CACHE:USER', result.user_info)
+                    FM.obs.emit('LOGIN:UPDATE')
+                    self.err = false
+                } else {
+                    self.logout()
+                    self.err = result.err
                 }
-                FM.cache.set('CACHE:USER', self.userInfo)
             })
+            return false;
         },
 
         //退出登录
@@ -171,7 +176,7 @@
             var self = this
             self.userInfo= null
             FM.cache.remove('CACHE:USER')
-            FM.appSDK.logout()
+            FM.webSDK.logout()
         },
 
         //判断登录信息是否即将过期，十分钟之内过期
@@ -185,6 +190,8 @@
             var self = this
             var email = self.getOptionValue('email')
             var password = self.getOptionValue('password')
+            var captcha_solution = self.getOptionValue('captcha_solution')
+            var captcha_id = self.captcha_id
             if(!email) {
                 self.err = '请输入账号'
                 return false
@@ -194,8 +201,11 @@
                 return false
             }
             return {
-                email : email,
-                password : password
+                alias : email,
+                form_password : password,
+                captcha_solution: captcha_solution,
+                captcha_id : captcha_id,
+                remember : 'on'
             }
         },
 

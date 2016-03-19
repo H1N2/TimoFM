@@ -15,6 +15,6 @@
         "target" : "deb",
         "version" : "1.1.1",
         "executable" : "myExec",
-        "maintainer" "sapjax <sapjax@gmail.com>"
+        "maintainer" :"sapjax <sapjax@gmail.com>"
     }
 }

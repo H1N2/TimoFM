@@ -39,7 +39,7 @@ FM.obs.on('PLAYLIST:UPDATE', function(list) {
 
     //列表歌曲不足时自动补充
     if(FM.playlist.isEmpty(1) || FM.playlist.isEnd(1)) {
-        FM.appSDK.songs({
+        FM.webSDK.songs({
             channel_id : FM.status.channel.id,
             sid : FM.status.song.id
         },function(err, songs) {
